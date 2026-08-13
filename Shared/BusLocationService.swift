@@ -12,6 +12,9 @@ enum BusApproachState: Equatable {
     case arrived
     /// バスが対象停留所を発車した
     case departed
+    /// 路線の運行がまだ始まっていない（始発前）。GPS位置がないため、
+    /// 時刻表ベースの到着見込み時刻（絶対時刻）だけが返る。
+    case notStarted(estimatedTime: BusTime?)
     /// 本日の運行が終了している
     case finished
     /// 解析できないメッセージ（運行時間外など）。生メッセージをそのまま保持する。
@@ -31,6 +34,10 @@ struct BusApproach: Equatable {
             return observedAt.addingTimeInterval(TimeInterval(minutes * 60))
         case .imminent, .arrived:
             return observedAt
+        case .notStarted(let time):
+            var calendar = Calendar(identifier: .gregorian)
+            calendar.timeZone = BusStopConfig.timeZone
+            return time?.date(on: observedAt, calendar: calendar)
         case .departed, .finished, .unknown:
             return nil
         }
@@ -65,9 +72,14 @@ enum BusLocationService {
     ///   「バスが到着しました。」
     ///   「バスが発車しました。」
     ///   「本日、この停留所に停車するバスの運行は終了しています。」
+    ///   「この路線の運行はまだ開始されていません。この停留所への到着は07時47分頃になります。」
     static func parseState(from message: String) -> BusApproachState {
         if message.contains("運行は終了") {
             return .finished
+        }
+        // 始発前はGPS位置がないため、時刻表ベースの絶対時刻（07時47分など）で返ってくる
+        if message.contains("運行はまだ開始") {
+            return .notStarted(estimatedTime: parseScheduledTime(from: message))
         }
         // 「まもなく…到着します」は接近メッセージと語尾が似るため先に判定する
         if message.contains("まもなく") {
@@ -97,5 +109,18 @@ enum BusLocationService {
               let range = Range(match.range(at: 1), in: text)
         else { return nil }
         return String(text[range])
+    }
+
+    /// 「07時47分」のような絶対時刻表記から時・分を取り出す
+    private static func parseScheduledTime(from text: String) -> BusTime? {
+        guard let regex = try? NSRegularExpression(pattern: "([0-9]{1,2})時([0-9]{1,2})分"),
+              let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+              match.numberOfRanges > 2,
+              let hourRange = Range(match.range(at: 1), in: text),
+              let minuteRange = Range(match.range(at: 2), in: text),
+              let hour = Int(text[hourRange]),
+              let minute = Int(text[minuteRange])
+        else { return nil }
+        return BusTime(hour: hour, minute: minute)
     }
 }

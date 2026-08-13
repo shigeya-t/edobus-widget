@@ -92,6 +92,7 @@ final class ArrivalModel: ObservableObject {
         case .imminent: return "まもなく"
         case .arrived: return "到着"
         case .departed: return "発車"
+        case .notStarted: return "始発待ち"
         case .finished: return "運行終了"
         case .unknown: return "--"
         }
@@ -282,7 +283,7 @@ struct MenuContent: View {
                 .fixedSize(horizontal: false, vertical: true)
         } else if let approach = model.approach {
             VStack(alignment: .leading, spacing: 6) {
-                arrivalText(approach.state)
+                arrivalText(approach)
                 Text("バスロケーション情報 · \(approach.observedAt, format: .dateTime.hour().minute().second()) 時点")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
@@ -302,8 +303,8 @@ struct MenuContent: View {
     }
 
     @ViewBuilder
-    private func arrivalText(_ state: BusApproachState) -> some View {
-        switch state {
+    private func arrivalText(_ approach: BusApproach) -> some View {
+        switch approach.state {
         case .approaching(let minutes, let isAtLeast, let nearStopName):
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text(isAtLeast ? "約\(minutes)分以上" : "約\(minutes)分後")
@@ -326,6 +327,17 @@ struct MenuContent: View {
             Text("発車しました")
                 .font(.system(size: 28, weight: .semibold, design: .rounded))
                 .foregroundStyle(.orange)
+        case .notStarted:
+            VStack(alignment: .leading, spacing: 2) {
+                Text("運行開始前")
+                    .font(.system(size: 24, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.secondary)
+                if let arrival = approach.predictedArrival {
+                    Text("始発 \(arrival, format: .dateTime.hour().minute()) 頃到着見込み")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+            }
         case .finished:
             Text("本日の運行は終了しました")
                 .font(.system(size: 22, weight: .semibold, design: .rounded))

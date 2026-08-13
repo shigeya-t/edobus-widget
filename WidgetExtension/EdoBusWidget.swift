@@ -55,7 +55,7 @@ struct Provider: AppIntentTimelineProvider {
 
         let interval: TimeInterval
         switch entry.approach?.state {
-        case .approaching:
+        case .approaching, .notStarted:
             // 到着直後に次のバスへ切り替えたいので、到着予測の少し後か3分後の早い方
             if let arrival = entry.approach?.predictedArrival {
                 interval = min(max(arrival.timeIntervalSince(now) + 60, 60), 180)
@@ -270,6 +270,20 @@ struct EdoBusWidgetEntryView: View {
 
         case .departed:
             statusText("発車しました", color: .orange, systemImage: "arrow.right")
+
+        case .notStarted:
+            VStack(alignment: .leading, spacing: 2) {
+                Label("運行開始前", systemImage: "sunrise")
+                    .font(.title3.bold())
+                    .foregroundStyle(.secondary)
+                if let arrival = entry.approach?.predictedArrival {
+                    Text("始発 \(arrival, format: .dateTime.hour().minute()) 頃到着見込み")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                }
+            }
 
         case .finished:
             statusText("本日の運行終了", color: .secondary, systemImage: "moon.zzz")
