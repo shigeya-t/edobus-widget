@@ -1,0 +1,89 @@
+name: EdoBusWidget
+options:
+  bundleIdPrefix: jp.shigeya
+  deploymentTarget:
+    macOS: "14.0"
+
+targets:
+  EdoBusWidget:
+    type: application
+    platform: macOS
+    sources:
+      - path: App
+      - path: Shared
+    info:
+      path: App/Info.plist
+      properties:
+        # ウィジェットギャラリーの一覧にはこの名前が出る
+        CFBundleName: 江戸バス
+        CFBundleDisplayName: 江戸バス
+        # メニューバー常駐アプリ。Dock とアプリスイッチャーには出さない
+        LSUIElement: true
+        AppGroupID: $(APP_GROUP_ID)
+        NSAppTransportSecurity:
+          NSExceptionDomains:
+            edobus.bus-go.com:
+              NSExceptionAllowsInsecureHTTPLoads: true
+              NSIncludesSubdomains: false
+    entitlements:
+      path: App/EdoBusWidget.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.network.client: true
+        # 一時停止フラグをアプリとウィジェット拡張で共有するために必要
+        com.apple.security.application-groups:
+          - $(APP_GROUP_ID)
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: jp.shigeya.EdoBusWidget
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        CODE_SIGN_STYLE: Automatic
+        SWIFT_VERSION: "5.0"
+        # App Group は macOS では Team ID プレフィックスが必須。
+        # フォーク時は DEVELOPMENT_TEAM を指定すれば全体に反映される。
+        APP_GROUP_ID: $(DEVELOPMENT_TEAM).jp.shigeya.EdoBusWidget
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    dependencies:
+      - target: EdoBusWidgetExtension
+        embed: true
+        codeSign: true
+
+  EdoBusWidgetExtension:
+    type: app-extension
+    platform: macOS
+    sources:
+      - path: WidgetExtension
+      - path: Shared
+    info:
+      path: WidgetExtension/Info.plist
+      properties:
+        CFBundleName: 江戸バス
+        CFBundleDisplayName: 江戸バス
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+        AppGroupID: $(APP_GROUP_ID)
+        NSAppTransportSecurity:
+          NSExceptionDomains:
+            edobus.bus-go.com:
+              NSExceptionAllowsInsecureHTTPLoads: true
+              NSIncludesSubdomains: false
+    entitlements:
+      path: WidgetExtension/EdoBusWidgetExtension.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.network.client: true
+        # 一時停止フラグをアプリとウィジェット拡張で共有するために必要
+        com.apple.security.application-groups:
+          - $(APP_GROUP_ID)
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: jp.shigeya.EdoBusWidget.Widget
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        CODE_SIGN_STYLE: Automatic
+        SWIFT_VERSION: "5.0"
+        # App Group は macOS では Team ID プレフィックスが必須。
+        # フォーク時は DEVELOPMENT_TEAM を指定すれば全体に反映される。
+        APP_GROUP_ID: $(DEVELOPMENT_TEAM).jp.shigeya.EdoBusWidget
+        SKIP_INSTALL: false
