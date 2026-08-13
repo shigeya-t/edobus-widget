@@ -143,9 +143,10 @@ struct Provider: AppIntentTimelineProvider {
     /// 停留所名・路線名はウィジェット設定に保存されている値をそのまま使う。
     private func pausedEntry(configuration: SelectBusStopIntent, now: Date) -> BusEntry {
         let stopID = configuration.stop?.id ?? BusStopConfig.defaultStop.id
+        let defaultStopData = BusStop(id: stopID) ?? BusStopConfig.defaultStop
         let stop = BusStop(
-            routeCode: BusStop(id: stopID)?.routeCode ?? BusStopConfig.defaultStop.routeCode,
-            code: BusStop(id: stopID)?.code ?? BusStopConfig.defaultStop.code,
+            routeCode: defaultStopData.routeCode,
+            code: defaultStopData.code,
             name: configuration.stop?.name ?? BusStopConfig.defaultStop.name
         )
         let routeName = configuration.route?.name ?? ""
@@ -226,8 +227,10 @@ struct EdoBusWidgetEntryView: View {
                         .foregroundStyle(.orange)
                 }
                 Text("\(observedAt, format: .dateTime.hour().minute()) 時点")
-                Text(entry.isPaused ? "· 一時停止中" : "")
-                    .foregroundStyle(.orange)
+                if entry.isPaused {
+                    Text("· 一時停止中")
+                        .foregroundStyle(.orange)
+                }
             }
             .font(.caption2)
             .foregroundStyle(.tertiary)
