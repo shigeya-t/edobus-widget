@@ -190,9 +190,12 @@ struct EdoBusWidgetEntryView: View {
     private var header: some View {
         HStack(alignment: .top, spacing: 6) {
             VStack(alignment: .leading, spacing: 1) {
-                Text("\(BusStopConfig.companyName) \(entry.routeName)")
+                // 小サイズは幅が狭く「会社名+路線名」だと収まらないため、路線名のみ表示する
+                Text(family == .systemSmall ? entry.routeName : "\(BusStopConfig.companyName) \(entry.routeName)")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
                 Text(entry.stop.name)
                     .font(.subheadline.bold())
                     .lineLimit(1)
