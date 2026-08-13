@@ -70,8 +70,39 @@ xcodebuild -project EdoBusWidget.xcodeproj -scheme EdoBusWidget \
   CODE_SIGN_STYLE=Manual \
   CODE_SIGN_IDENTITY="Apple Development: you@example.com (XXXXXXXXXX)" \
   DEVELOPMENT_TEAM=YOURTEAMID \
-  PROVISIONING_PROFILE_SPECIFIER=""
+  PROVISIONING_PROFILE_SPECIFIER="" \
+  CONFIGURATION_BUILD_DIR=build
 ```
+
+`CONFIGURATION_BUILD_DIR=build` を付けると、DerivedData の奥深くではなく
+プロジェクト直下の `build/EdoBusWidget.app` に成果物ができるので分かりやすくなります。
+
+```sh
+open build/EdoBusWidget.app
+```
+
+これで実行できますが、Dock にもアプリスイッチャーにも出ません（メニューバー常駐のため）。
+メニューバーにバスのアイコンが増えているはずです。常用する場合は `/Applications` などに
+コピーしてから起動し、ログイン項目に登録してください。
+
+```sh
+cp -R build/EdoBusWidget.app /Applications/
+open /Applications/EdoBusWidget.app
+```
+
+起動後は前述の手順と同じく、通知センターまたはデスクトップの「ウィジェットを編集」から
+「江戸バス」を追加してください。
+
+> **ウィジェットギャラリーへの登録について**
+> 手動での登録作業は不要です。ウィジェット拡張はアプリバンドルに組み込まれており（`embed: true`）、
+> ビルド時に Xcode / `xcodebuild` が自動的に Launch Services へ登録します
+> （ビルドログの `RegisterWithLaunchServices` がこれに当たります）。
+> あとはアプリを一度起動するだけで、「ウィジェットを編集」のギャラリーに「江戸バス」が出てきます。
+>
+> もしギャラリーに出てこない場合は、たいてい次のどちらかが原因です。
+> - Team 未設定のままアドホック署名でビルドしている（前述の `Unable to get teamId` 問題）
+> - 別の場所（DerivedData など）でビルドした古いアプリが Launch Services に残ったまま
+>   競合している。この場合はアプリを一度終了し、`open` で起動し直すと直ることが多いです
 
 ## バス停の変更
 
