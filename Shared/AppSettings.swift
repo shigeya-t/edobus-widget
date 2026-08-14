@@ -2,6 +2,8 @@ import Foundation
 
 extension Notification.Name {
     static let busPauseStateChanged = Notification.Name("jp.shigeya.EdoBusWidget.pauseStateChanged")
+    /// ウィジェットの「今すぐ更新」は通信せず、Appに取得を依頼する（到着見込みの取得をAppに一本化しているため）。
+    static let busManualRefreshRequested = Notification.Name("jp.shigeya.EdoBusWidget.manualRefreshRequested")
 }
 
 /// アプリとウィジェット拡張で共有する設定。
@@ -43,6 +45,16 @@ enum AppSettings {
     static func notifyPauseStateChanged() {
         DistributedNotificationCenter.default().postNotificationName(
             .busPauseStateChanged,
+            object: nil,
+            userInfo: nil,
+            deliverImmediately: true
+        )
+    }
+
+    /// ウィジェットの「今すぐ更新」ボタンから、到着見込みの取得元であるAppに通知する。
+    static func notifyManualRefreshRequested() {
+        DistributedNotificationCenter.default().postNotificationName(
+            .busManualRefreshRequested,
             object: nil,
             userInfo: nil,
             deliverImmediately: true

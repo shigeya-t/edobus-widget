@@ -1,5 +1,6 @@
 import SwiftUI
 import WidgetKit
+import AppIntents
 
 @main
 struct EdoBusWidgetApp: App {
@@ -58,6 +59,7 @@ final class ArrivalModel: ObservableObject {
             Task { await activate() }
         }
         observePauseChangesFromWidget()
+        observeManualRefreshRequestsFromWidget()
     }
 
     /// ウィジェット上のボタンで切り替えられた場合に追従する。
@@ -69,6 +71,17 @@ final class ArrivalModel: ObservableObject {
             queue: .main
         ) { [weak self] _ in
             Task { @MainActor in self?.syncPauseState() }
+        }
+    }
+
+    /// ウィジェットの「今すぐ更新」は通信せずAppに委ねているため、要求を受けて代わりに取得する。
+    private func observeManualRefreshRequestsFromWidget() {
+        DistributedNotificationCenter.default().addObserver(
+            forName: .busManualRefreshRequested,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in await self?.refresh(force: true) }
         }
     }
 
@@ -176,13 +189,13 @@ final class ArrivalModel: ObservableObject {
 
         do {
             let result = try await BusLocationService.fetchApproach(stop: stop)
-            guard isCurrent() else { return }
-            approach = result
-            errorText = nil
             AppSettings.saveSnapshot(
                 .init(message: result.rawMessage, observedAt: result.observedAt),
                 stopID: stop.id
             )
+            guard isCurrent() else { return }
+            approach = result
+            errorText = nil
         } catch {
             guard isCurrent() else { return }
             errorText = error.localizedDescription
@@ -199,9 +212,54 @@ final class ArrivalModel: ObservableObject {
                 .filter { $0 > now }
         }
 
+        // 到着見込みの取得はここに一本化しているため、メニューバーとは別のバス停を
+        // 表示しているウィジェットの分もあわせて取得しておく（ウィジェット側は通信しない）。
+        await refreshWidgetOnlyApproaches(excluding: stop.id)
+
         // 配置済みウィジェットを更新する。
         // WidgetKit は自前のタイムライン要求をほとんど実行しないため、ここが実質の更新契機になる。
         WidgetCenter.shared.reloadAllTimelines()
+    }
+
+    /// メニューバーの選択とは別のバス停を表示しているウィジェットの到着見込みを取得し、共有ストレージへ保存する。
+    /// ウィジェット拡張はもう自分では通信せず、ここで保存したスナップショットを読むだけになる。
+    private func refreshWidgetOnlyApproaches(excluding excludedStopID: String) async {
+        let stops = await widgetConfiguredStops().filter { $0.id != excludedStopID }
+        guard !stops.isEmpty else { return }
+        await withTaskGroup(of: Void.self) { group in
+            for stop in stops {
+                group.addTask {
+                    guard let result = try? await BusLocationService.fetchApproach(stop: stop) else { return }
+                    AppSettings.saveSnapshot(
+                        .init(message: result.rawMessage, observedAt: result.observedAt),
+                        stopID: stop.id
+                    )
+                }
+            }
+        }
+    }
+
+    /// 配置中の各ウィジェットが表示しているバス停（重複なし）。
+    private func widgetConfiguredStops() async -> [BusStop] {
+        let infos: [WidgetInfo]
+        do {
+            infos = try await withCheckedThrowingContinuation { continuation in
+                WidgetCenter.shared.getCurrentConfigurations { continuation.resume(with: $0) }
+            }
+        } catch {
+            return []
+        }
+
+        var seen = Set<String>()
+        var stops: [BusStop] = []
+        for info in infos {
+            guard let intent = info.configuration as? SelectBusStopIntent else { continue }
+            let stop = await intent.resolvedStop()
+            if seen.insert(stop.id).inserted {
+                stops.append(stop)
+            }
+        }
+        return stops
     }
 
     // MARK: - 選択の保存

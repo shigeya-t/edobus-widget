@@ -91,18 +91,11 @@ struct Provider: AppIntentTimelineProvider {
         let stop = await configuration.resolvedStop()
         let routeName = await BusDirectoryService.route(code: stop.routeCode)?.name ?? ""
 
-        async let approachTask = try? await BusLocationService.fetchApproach(stop: stop)
+        // 到着見込みはAppがApp Group経由で共有するスナップショットを読むだけで、ここでは通信しない
+        // （メニューバーアプリとウィジェット拡張が別々に同じ問い合わせをする重複を避けるため）。
+        let approach = Self.approach(forStopID: stop.id)
         let dayType = await HolidayChecker.dayType(for: now)
         let times = (try? await BusScheduleService.fetchTimetable(stop: stop, dayType: dayType)) ?? []
-        let approach = await approachTask
-
-        // 一時停止中に表示する値として、取得結果を共有領域に残しておく
-        if let approach {
-            AppSettings.saveSnapshot(
-                .init(message: approach.rawMessage, observedAt: approach.observedAt),
-                stopID: stop.id
-            )
-        }
 
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = BusStopConfig.timeZone
@@ -151,23 +144,27 @@ struct Provider: AppIntentTimelineProvider {
         )
         let routeName = configuration.route?.name ?? ""
 
-        let approach = AppSettings.snapshot(stopID: stop.id).map { snapshot in
+        return BusEntry(
+            date: now,
+            stop: stop,
+            routeName: routeName,
+            approach: Self.approach(forStopID: stop.id),
+            scheduled: [],
+            dayLabel: "",
+            isNextDay: false,
+            isPaused: true
+        )
+    }
+
+    /// Appが保存した到着見込みのスナップショットを読む。ここでは通信しない。
+    private static func approach(forStopID stopID: String) -> BusApproach? {
+        AppSettings.snapshot(stopID: stopID).map { snapshot in
             BusApproach(
                 state: BusLocationService.parseState(from: snapshot.message),
                 observedAt: snapshot.observedAt,
                 rawMessage: snapshot.message
             )
         }
-        return BusEntry(
-            date: now,
-            stop: stop,
-            routeName: routeName,
-            approach: approach,
-            scheduled: [],
-            dayLabel: "",
-            isNextDay: false,
-            isPaused: true
-        )
     }
 }
 

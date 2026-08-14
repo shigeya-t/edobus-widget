@@ -25,6 +25,8 @@ struct RefreshBusIntent: AppIntent {
 
     func perform() async throws -> some IntentResult {
         AppSettings.requestManualRefresh(stopID: stopID)
+        // 到着見込みの取得はAppに一本化しているため、ウィジェット自身は通信せずAppに依頼する。
+        AppSettings.notifyManualRefreshRequested()
         WidgetCenter.shared.reloadAllTimelines()
         return .result()
     }
