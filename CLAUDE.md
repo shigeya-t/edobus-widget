@@ -81,7 +81,64 @@ open ~/Applications/EdoBusWidget.app
 
 初回（まだ `~/Applications/EdoBusWidget.app` が存在しない環境）は `quit` / `pkill` は何もせず失敗するだけなので
 無視してよい。また、起動しただけではウィジェットは画面に出ない。通知センターまたはデスクトップの
-「ウィジェットを編集」から「江戸バス」を追加する必要がある（README の「ビルドと導入」参照）。
+「ウィジェットを編集」から「江戸バス接近情報」を追加する必要がある（README の「ビルドと導入」参照）。
+
+## 既知の落とし穴: ウィジェットギャラリーのアプリ一覧が英語名になる
+
+ウィジェットギャラリー左サイドバーのアプリ一覧には `EdoBusWidget` と出る。`Info.plist` の
+`CFBundleName` / `CFBundleDisplayName` を日本語にしても変わらない（設定済みだが効いていない）。
+一覧が参照しているのは `.app` バンドルのファイル名（Spotlight の `kMDItemDisplayName`）である。
+
+**この日本語化は 2026-08-14 に試みて失敗し、元に戻した。同じ手順を繰り返さないこと。**
+
+試したこと:
+
+- `PRODUCT_NAME` を日本語にする → `CodeSign failed`（"code object is not signed at all"）でビルドが壊れる
+- `WRAPPER_NAME: 江戸バス接近情報.app` を `EdoBusWidget` ターゲットに設定 → バンドル名・`kMDItemDisplayName`・
+  `pluginkit` の Display Name はすべて日本語になり、署名（Team ID）も正常。**それでもギャラリーの
+  一覧は英語名のまま変わらなかった**
+- `CFBundleVersion` を上げて chronod に再取り込みさせる → 変化なし。そもそも正常動作している
+  他アプリのウィジェットも `1` のままなので、バージョンは関係ない
+- Launch Services の古い登録（実体の無い `/private/tmp/dd*/...` が 10 件残っていた）を `lsregister -u` で掃除 → 変化なし
+- chronod のキャッシュ行を削除して再取り込みさせる（後述） → **ギャラリーから項目自体が消え、
+  `pluginkit` に正しく登録し直しても復活しなかった**
+
+最後の状態が最も悪く、ウィジェットが一覧に出ず配置もできなくなる。復旧は `WRAPPER_NAME` を外して
+`EdoBusWidget.app` に戻し、再ビルドして配置し直す。
+
+再挑戦するなら、この Mac の既存の状態を触るのではなく、ウィジェットを一度も配置していない
+クリーンなユーザーアカウントで検証すること。
+
+### 調査に使えるコマンド
+
+```sh
+# バンドル名が Spotlight に反映されているか
+mdls -name kMDItemDisplayName ~/Applications/EdoBusWidget.app
+
+# ウィジェット拡張として認識されている名前
+pluginkit -mAvvv -p com.apple.widgetkit-extension | grep -A6 jp.shigeya.EdoBusWidget.Widget
+
+# Launch Services の登録一覧（実体の無いパスが残っていたら -u で解除、-f で再登録）
+LSR=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
+$LSR -dump | grep -iE "path:.*EdoBus" | sort -u
+```
+
+### chronod のキャッシュ（触る場合は慎重に）
+
+配置済みウィジェット 1 つにつき 1 行が
+`~/Library/Group Containers/group.com.apple.chronod/chronod/chrono.sql` の `Descriptors` にあり、
+BLOB（NSKeyedArchiver 形式）にアプリ名・バンドルパス・選択中のバス停が焼き付いている。
+`ExtensionMetadata` にも 1 行。chronod は既存インスタンスのディスクリプタを再取得しないため、
+`killall chronod` でも再ビルドでも古い値が残り続ける。
+
+SIP が有効なため `launchctl bootout gui/$UID/com.apple.chronod` は拒否される。編集する場合は
+`PRAGMA busy_timeout` でロック解放を待つ。**この行を消すと配置済みウィジェットが失われ、
+ギャラリーに復活しないことがある。** 実行前に必ず `chrono.sql` / `-wal` / `-shm` を控えること。
+
+```sh
+DB=~/Library/Group\ Containers/group.com.apple.chronod/chronod/chrono.sql
+sqlite3 "$DB" "select bundleIdentifier, version from ExtensionMetadata where bundleIdentifier like '%shigeya%'"
+```
 
 ## ログの確認
 

@@ -15,8 +15,12 @@ targets:
       path: App/Info.plist
       properties:
         # ウィジェットギャラリーの一覧にはこの名前が出る
-        CFBundleName: 江戸バス
-        CFBundleDisplayName: 江戸バス
+        CFBundleName: 江戸バス接近情報
+        CFBundleDisplayName: 江戸バス接近情報
+        # XcodeGen は既定で 1.0 / 1 を直接書き込み、下の MARKETING_VERSION /
+        # CURRENT_PROJECT_VERSION がバンドルに反映されないため、明示的に連動させる
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         # メニューバー常駐アプリ。Dock とアプリスイッチャーには出さない
         LSUIElement: true
         AppGroupID: $(APP_GROUP_ID)
@@ -58,8 +62,10 @@ targets:
     info:
       path: WidgetExtension/Info.plist
       properties:
-        CFBundleName: 江戸バス
-        CFBundleDisplayName: 江戸バス
+        CFBundleName: 江戸バス接近情報
+        CFBundleDisplayName: 江戸バス接近情報
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
         AppGroupID: $(APP_GROUP_ID)

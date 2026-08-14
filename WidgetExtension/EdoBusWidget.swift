@@ -340,7 +340,7 @@ struct EdoBusWidget: Widget {
             EdoBusWidgetEntryView(entry: entry)
                 .containerBackground(.fill.tertiary, for: .widget)
         }
-        .configurationDisplayName("江戸バス")
+        .configurationDisplayName("江戸バス接近情報")
         .description("選んだバス停に次のバスが到着するまでの時間を、バスロケーション情報から表示します。")
         .supportedFamilies([.systemSmall, .systemMedium])
     }
