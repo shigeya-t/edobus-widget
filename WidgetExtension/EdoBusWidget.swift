@@ -6,7 +6,7 @@ struct BusEntry: TimelineEntry {
     let date: Date
     let stop: BusStop
     let routeName: String
-    /// バスロケーション（GPS）由来の接近状況。取得できなかった場合はnil。
+    /// バスロケーションシステム由来の接近状況。取得できなかった場合はnil。
     let approach: BusApproach?
     /// 時刻表由来の今後の定刻。リアルタイム情報の補助として表示する。
     let scheduled: [Date]
@@ -44,7 +44,7 @@ struct Provider: AppIntentTimelineProvider {
         return Timeline(entries: [entry], policy: .after(reloadDate(for: entry, now: now)))
     }
 
-    /// GPS情報を取り直すタイミング。
+    /// バスロケーション情報を取り直すタイミング。
     /// 残り分数はサーバーが算出した値をそのまま表示するため、
     /// 表示を新しく保てるかはこの更新間隔で決まる。
     private func reloadDate(for entry: BusEntry, now: Date) -> Date {

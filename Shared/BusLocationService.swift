@@ -12,7 +12,7 @@ enum BusApproachState: Equatable {
     case arrived
     /// バスが対象停留所を発車した
     case departed
-    /// 路線の運行がまだ始まっていない（始発前）。GPS位置がないため、
+    /// 路線の運行がまだ始まっていない（始発前）。バスロケーション情報がないため、
     /// 時刻表ベースの到着見込み時刻（絶対時刻）だけが返る。
     case notStarted(estimatedTime: BusTime?)
     /// 本日の運行が終了している
@@ -46,7 +46,7 @@ struct BusApproach: Equatable {
 
 enum BusLocationService {
     /// 公式サイトが5秒ごとに呼び出している案内メッセージエンドポイント。
-    /// GPS位置をもとにサーバー側が「あと約N分」を算出して返す。
+    /// バスロケーション情報をもとにサーバー側が「あと約N分」を算出して返す。
     static func fetchApproach(stop: BusStop) async throws -> BusApproach {
         let data = try await BusAPI.fetch(
             path: "get_guide_message_v2.php",
@@ -77,7 +77,7 @@ enum BusLocationService {
         if message.contains("運行は終了") {
             return .finished
         }
-        // 始発前はGPS位置がないため、時刻表ベースの絶対時刻（07時47分など）で返ってくる
+        // 始発前はバスロケーション情報がないため、時刻表ベースの絶対時刻（07時47分など）で返ってくる
         if message.contains("運行はまだ開始") {
             return .notStarted(estimatedTime: parseScheduledTime(from: message))
         }
