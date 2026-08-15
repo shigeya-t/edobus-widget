@@ -15,6 +15,9 @@ enum BusApproachState: Equatable {
     /// 路線の運行がまだ始まっていない（始発前）。バスロケーション情報がないため、
     /// 時刻表ベースの到着見込み時刻（絶対時刻）だけが返る。
     case notStarted(estimatedTime: BusTime?)
+    /// 運行中だが、この停留所に停車するバスが1時間以上ない（間引き運行など）。
+    /// バスロケーション情報がないため、時刻表ベースの到着見込み時刻（絶対時刻）だけが返る。
+    case longWait(estimatedTime: BusTime?)
     /// 本日の運行が終了している
     case finished
     /// 解析できないメッセージ（運行時間外など）。生メッセージをそのまま保持する。
@@ -34,7 +37,7 @@ struct BusApproach: Equatable {
             return observedAt.addingTimeInterval(TimeInterval(minutes * 60))
         case .imminent, .arrived:
             return observedAt
-        case .notStarted(let time):
+        case .notStarted(let time), .longWait(let time):
             var calendar = Calendar(identifier: .gregorian)
             calendar.timeZone = BusStopConfig.timeZone
             return time?.date(on: observedAt, calendar: calendar)
@@ -73,6 +76,7 @@ enum BusLocationService {
     ///   「バスが発車しました。」
     ///   「本日、この停留所に停車するバスの運行は終了しています。」
     ///   「この路線の運行はまだ開始されていません。この停留所への到着は07時47分頃になります。」
+    ///   「この停留所に停車するバスは１時間以上ありません。次の到着は09時13分頃になります。」
     static func parseState(from message: String) -> BusApproachState {
         if message.contains("運行は終了") {
             return .finished
@@ -80,6 +84,10 @@ enum BusLocationService {
         // 始発前はバスロケーション情報がないため、時刻表ベースの絶対時刻（07時47分など）で返ってくる
         if message.contains("運行はまだ開始") {
             return .notStarted(estimatedTime: parseScheduledTime(from: message))
+        }
+        // 間引き運行などで1時間以上間隔が空く場合も、バスロケーション情報がなく絶対時刻のみ返る
+        if message.contains("時間以上ありません") {
+            return .longWait(estimatedTime: parseScheduledTime(from: message))
         }
         // 「まもなく…到着します」は接近メッセージと語尾が似るため先に判定する
         if message.contains("まもなく") {

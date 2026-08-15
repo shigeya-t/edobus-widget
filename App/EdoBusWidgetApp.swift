@@ -106,6 +106,7 @@ final class ArrivalModel: ObservableObject {
         case .arrived: return "到着"
         case .departed: return "発車"
         case .notStarted: return "始発待ち"
+        case .longWait: return "しばらくなし"
         case .finished: return "運行終了"
         case .unknown: return "--"
         }
@@ -392,6 +393,17 @@ struct MenuContent: View {
                     .foregroundStyle(.secondary)
                 if let arrival = approach.predictedArrival {
                     Text("始発 \(arrival, format: .dateTime.hour().minute()) 頃到着見込み")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        case .longWait:
+            VStack(alignment: .leading, spacing: 2) {
+                Text("しばらく到着なし")
+                    .font(.system(size: 24, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.secondary)
+                if let arrival = approach.predictedArrival {
+                    Text("次は \(arrival, format: .dateTime.hour().minute()) 頃到着見込み")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 }

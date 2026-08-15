@@ -64,8 +64,8 @@ struct Provider: AppIntentTimelineProvider {
             }
         case .imminent, .arrived, .departed:
             interval = 90
-        case .finished, .unknown:
-            // 運行終了、または解釈できないメッセージ。
+        case .finished, .longWait, .unknown:
+            // 運行終了、長時間の間引き運行、または解釈できないメッセージ。
             // 次の定刻が分かっていればその少し前まで待ち、無駄な更新を減らす。
             if let next = entry.scheduled.first {
                 interval = min(max(next.timeIntervalSince(now) - 300, 5 * 60), 60 * 60)
@@ -275,6 +275,20 @@ struct EdoBusWidgetEntryView: View {
                     .foregroundStyle(.secondary)
                 if let arrival = entry.approach?.predictedArrival {
                     Text("始発 \(arrival, format: .dateTime.hour().minute()) 頃到着見込み")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                }
+            }
+
+        case .longWait:
+            VStack(alignment: .leading, spacing: 2) {
+                Label("しばらく到着なし", systemImage: "clock")
+                    .font(.title3.bold())
+                    .foregroundStyle(.secondary)
+                if let arrival = entry.approach?.predictedArrival {
+                    Text("次は \(arrival, format: .dateTime.hour().minute()) 頃到着見込み")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
