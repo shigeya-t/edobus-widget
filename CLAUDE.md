@@ -140,6 +140,42 @@ DB=~/Library/Group\ Containers/group.com.apple.chronod/chronod/chrono.sql
 sqlite3 "$DB" "select bundleIdentifier, version from ExtensionMetadata where bundleIdentifier like '%shigeya%'"
 ```
 
+## ウィジェットが真っ白／更新されないとき: AppIntents の登録切れ
+
+配置済みウィジェットが何も表示しなくなり、chronod のログに次が出る場合。
+
+```
+E EdoBusWidgetExtension [com.apple.chrono:widget]
+  Error getting AppIntent from LNAction: AppIntents.PerformIntentError.intentNotFound
+E chronod [com.apple.chrono:timeline.store]
+  reload: failed with error CHSErrorDomain Code=1101 "Returned view collection was either nil or empty."
+```
+
+原因は AppIntents（`SelectBusStopIntent` / `RefreshBusIntent`）が解決できないこと。ウィジェットの
+一時停止・更新ボタンが `Button(intent:)` で AppIntent を参照しているため、これが見つからないと
+ビュー全体の構築が失敗し、空のビューが返って更新が止まる。バンドル内に `Metadata.appintents` が
+あり、署名に Team ID が付いていても、Launch Services 側の登録が壊れると起きる
+（`lsregister -u` / `-f` や `pluginkit -r` / `-a` を手で叩いた後に発生した）。
+
+復旧は Launch Services への再帰的な再登録。`-f` 単体では直らず、`-R -trusted` が要る。
+
+```sh
+LSR=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
+osascript -e 'tell application "EdoBusWidget" to quit'
+pkill -f "MacOS/EdoBusWidget$"; pkill -f EdoBusWidgetExtension
+$LSR -f -R -trusted ~/Applications/EdoBusWidget.app
+open ~/Applications/EdoBusWidget.app
+killall chronod
+```
+
+確認は chronod のログを流し、`Request ended for EdoBusWidget:... - success` が出ること。
+`~/Library/Containers/jp.shigeya.EdoBusWidget.Widget/Data/SystemData/com.apple.chrono/timelines/EdoBusWidget/`
+に `.chrono-timeline` が生成されていれば描画できている。
+
+```sh
+log stream --level debug --predicate 'process == "EdoBusWidgetExtension" OR process == "chronod"' --style compact
+```
+
 ## ログの確認
 
 ```sh
