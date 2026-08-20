@@ -26,7 +26,7 @@ xcodegen generate
 **必ず Team ID 付きで署名すること。** `CODE_SIGNING_REQUIRED=NO` / `CODE_SIGN_IDENTITY=""` などの無署名ビルドは
 コンパイルが通るかの確認にしか使わないこと。
 
-理由: AppIntents（`SelectBusStopIntent` など、ウィジェットの設定パネル）は署名に Team ID が必要で、
+理由: AppIntents（`SelectEdoBusStopIntent` など、ウィジェットの設定パネル）は署名に Team ID が必要で、
 無署名や Team ID なしの adhoc 署名だと `Unable to get teamId` となり、ウィジェットが情報を更新できず
 プレースホルダのまま止まる。過去に無署名ビルドを誤って `~/Applications/EdoBusWidget.app` に上書きし、
 この症状が発生したことがある。
@@ -151,7 +151,7 @@ E chronod [com.apple.chrono:timeline.store]
   reload: failed with error CHSErrorDomain Code=1101 "Returned view collection was either nil or empty."
 ```
 
-原因は AppIntents（`SelectBusStopIntent` / `RefreshBusIntent`）が解決できないこと。ウィジェットの
+原因は AppIntents（`SelectEdoBusStopIntent` / `RefreshEdoBusIntent`）が解決できないこと。ウィジェットの
 一時停止・更新ボタンが `Button(intent:)` で AppIntent を参照しているため、これが見つからないと
 ビュー全体の構築が失敗し、空のビューが返って更新が止まる。バンドル内に `Metadata.appintents` が
 あり、署名に Team ID が付いていても、Launch Services 側の登録が壊れると起きる
@@ -175,6 +175,66 @@ killall chronod
 ```sh
 log stream --level debug --predicate 'process == "EdoBusWidgetExtension" OR process == "chronod"' --style compact
 ```
+
+これで直らないときは次節（型名の衝突）を疑うこと。症状は同じでも原因が違う。
+
+## ウィジェットが更新されない: 他プロジェクトと AppIntent の型名が衝突している
+
+上と症状（`intentNotFound` → `CHSErrorDomain Code=1101`）はまったく同じだが原因が違うケース。
+**署名も Launch Services も正常なのに直らない場合はこちら。`lsregister -R -trusted` では直らない。**
+
+見分け方は、拡張のログに出る intent ダンプの中身を見ること。バンドルIDや mangled name が
+**このプロジェクトのものでなければ**こちら。
+
+```
+EdoBusWidgetExtension[849] intent = { _extensionBundleId = "com.example.TobusWidget.Widget";
+                                      BundleIdentifier = "com.example.TobusWidget"; Name = TobusWidget; }
+EdoBusWidgetExtension[849] Could not find an intent with identifier SelectBusStopIntent,
+                           mangledTypeName: Optional("20TobusWidgetExtension19SelectBusStopIntentV")
+```
+
+AppIntent の識別子は既定で型名になる。このプロジェクトはフォーク元の `TobusWidget`（都バス、
+`~/Applications/TobusWidget.app`、バンドル `com.example.TobusWidget`）と型名が同じだったため、
+`SelectBusStopIntent` / `RefreshBusIntent` / `TogglePauseIntent` が両アプリで衝突していた。その結果、
+配置済みウィジェットの設定に**フォーク元側の intent 記述子が焼き付き**、ウィジェットの設定パネルにも
+都バスの路線・バス停が出る状態になっていた。
+
+再起動するまで表面化しないので注意。chronod は解決済みの設定をメモリに持っているため、
+再起動でディスク上の記述子を読み直した瞬間に一斉に壊れる。
+
+2026-08-20 に江戸バス側を `SelectEdoBusStopIntent` / `RefreshEdoBusIntent` / `ToggleEdoBusPauseIntent`
+へ改名して解消した。**この系統の intent を追加するときは、必ず `EdoBus` を含む一意な型名にすること。**
+
+なお `TobusWidget` は現役で稼働中（配置済みインスタンスあり、正常更新）。残骸ではないので削除しないこと。
+
+復旧手順は次の3つが全部必要。どれか一つでも欠けると直らない。
+
+1. 型名を改名して衝突を解消する
+2. `CURRENT_PROJECT_VERSION` を上げてビルドし直す（次節。上げないと chronod が古い記述子を使い続ける）
+3. **配置済みウィジェットを削除して、ギャラリーから追加し直す**
+
+3 が要るのは、既に保存済みの設定を chronod が移行してくれないため。「ウィジェットを編集」では
+保存済みの intent がそのまま開くだけなので直らない。削除して新規に追加すること。
+
+## アプリを入れ替えたときは CFBundleVersion を上げる
+
+`~/Applications/EdoBusWidget.app` を置き換えても、`CFBundleVersion` が同じままだと chronod は
+「更新された拡張」と判定せず、**古いウィジェット記述子（kind と設定 intent の対応）を使い続ける**。
+intent を改名したのに古い名前が要求され続ける、といった症状になる。
+
+`project.yml` の `CURRENT_PROJECT_VERSION` を上げて（両ターゲット）再生成・再ビルド・再配置すると、
+chronod が古い記述子を破棄して読み直す。
+
+```
+chronod [com.apple.chrono:placeholder] Purging placeholders for removed descriptor:
+        <CHSWidgetDescriptor: kind: EdoBusWidget; ...; hasDefaultIntent: NO>
+    hasDefaultIntent = YES;
+```
+
+`hasDefaultIntent` が `YES` になり、placeholder 要求が success になれば取り込み直されている。
+
+これは「ギャラリーのアプリ一覧が英語名になる」件（版数を上げても変化なし）とは別の話で、
+そちらには効かないがこちらには効く。
 
 ## ログの確認
 

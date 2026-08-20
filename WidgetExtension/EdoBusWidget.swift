@@ -34,11 +34,11 @@ struct Provider: AppIntentTimelineProvider {
         BusEntry.placeholder()
     }
 
-    func snapshot(for configuration: SelectBusStopIntent, in context: Context) async -> BusEntry {
+    func snapshot(for configuration: SelectEdoBusStopIntent, in context: Context) async -> BusEntry {
         await buildEntry(configuration: configuration, now: Date())
     }
 
-    func timeline(for configuration: SelectBusStopIntent, in context: Context) async -> Timeline<BusEntry> {
+    func timeline(for configuration: SelectEdoBusStopIntent, in context: Context) async -> Timeline<BusEntry> {
         let now = Date()
         let entry = await buildEntry(configuration: configuration, now: now)
         return Timeline(entries: [entry], policy: .after(reloadDate(for: entry, now: now)))
@@ -79,7 +79,7 @@ struct Provider: AppIntentTimelineProvider {
         return now.addingTimeInterval(interval)
     }
 
-    private func buildEntry(configuration: SelectBusStopIntent, now: Date) async -> BusEntry {
+    private func buildEntry(configuration: SelectEdoBusStopIntent, now: Date) async -> BusEntry {
         // 停留所の解決や路線名の取得も通信を伴うため、一時停止の判定を最初に行う。
         // 停留所IDは設定値から通信なしで取得できる。
         let isPaused = AppSettings.isPaused
@@ -134,7 +134,7 @@ struct Provider: AppIntentTimelineProvider {
 
     /// 一時停止中のエントリ。通信を一切せず、設定値と最後の取得結果だけで組み立てる。
     /// 停留所名・路線名はウィジェット設定に保存されている値をそのまま使う。
-    private func pausedEntry(configuration: SelectBusStopIntent, now: Date) -> BusEntry {
+    private func pausedEntry(configuration: SelectEdoBusStopIntent, now: Date) -> BusEntry {
         let stopID = configuration.stop?.id ?? BusStopConfig.defaultStop.id
         let defaultStopData = BusStop(id: stopID) ?? BusStopConfig.defaultStop
         let stop = BusStop(
@@ -200,14 +200,14 @@ struct EdoBusWidgetEntryView: View {
             }
             Spacer(minLength: 0)
             HStack(spacing: 8) {
-                Button(intent: TogglePauseIntent()) {
+                Button(intent: ToggleEdoBusPauseIntent()) {
                     Image(systemName: entry.isPaused ? "play.fill" : "pause.fill")
                         .font(.caption)
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(entry.isPaused ? .orange : .secondary)
 
-                Button(intent: RefreshBusIntent(stopID: entry.stop.id)) {
+                Button(intent: RefreshEdoBusIntent(stopID: entry.stop.id)) {
                     Image(systemName: "arrow.clockwise")
                         .font(.caption)
                 }
@@ -350,7 +350,7 @@ struct EdoBusWidget: Widget {
     let kind: String = "EdoBusWidget"
 
     var body: some WidgetConfiguration {
-        AppIntentConfiguration(kind: kind, intent: SelectBusStopIntent.self, provider: Provider()) { entry in
+        AppIntentConfiguration(kind: kind, intent: SelectEdoBusStopIntent.self, provider: Provider()) { entry in
             EdoBusWidgetEntryView(entry: entry)
                 .containerBackground(.fill.tertiary, for: .widget)
         }

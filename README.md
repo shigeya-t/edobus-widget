@@ -230,7 +230,7 @@ Shared/
   BusScheduleService.swift   時刻表の取得
   BusLocationService.swift   到着見込みの取得とメッセージ解析
   HolidayChecker.swift       平日 / 土曜 / 日祝の判定
-  SelectBusStopIntent.swift  ウィジェット設定パネル（AppIntents）
+  SelectEdoBusStopIntent.swift  ウィジェット設定パネル（AppIntents）
 WidgetExtension/         ウィジェット本体
 App/                     メニューバー常駐アプリ（ウィジェットの更新もここから行う）
 ```
