@@ -254,7 +254,7 @@ final class ArrivalModel: ObservableObject {
         var seen = Set<String>()
         var stops: [BusStop] = []
         for info in infos {
-            guard let intent = info.configuration as? SelectBusStopIntent else { continue }
+            guard let intent = info.configuration as? SelectEdoBusStopIntent else { continue }
             let stop = await intent.resolvedStop()
             if seen.insert(stop.id).inserted {
                 stops.append(stop)

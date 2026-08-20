@@ -51,7 +51,7 @@ struct BusStopEntity: AppEntity {
 
 struct BusStopQuery: EntityQuery {
     /// 選択中の路線に属する停留所だけを候補に出すため、同じIntentの route パラメータを参照する
-    @IntentParameterDependency<SelectBusStopIntent>(\.$route)
+    @IntentParameterDependency<SelectEdoBusStopIntent>(\.$route)
     var selection
 
     func entities(for identifiers: [String]) async throws -> [BusStopEntity] {
@@ -80,7 +80,7 @@ struct BusStopQuery: EntityQuery {
     }
 }
 
-struct SelectBusStopIntent: WidgetConfigurationIntent {
+struct SelectEdoBusStopIntent: WidgetConfigurationIntent {
     static var title: LocalizedStringResource { "バス停を選択" }
     static var description: IntentDescription {
         IntentDescription("到着時刻を表示する路線とバス停を選びます。")

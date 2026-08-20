@@ -3,7 +3,7 @@ import WidgetKit
 
 /// ウィジェット上のリロードボタン（macOS 14 以降の操作可能ウィジェット）。
 /// 一時停止中でも、明示的な操作なのでこのときだけは取得を許可する。
-struct RefreshBusIntent: AppIntent {
+struct RefreshEdoBusIntent: AppIntent {
     static var title: LocalizedStringResource { "更新" }
     static var description: IntentDescription {
         IntentDescription("バスの到着見込みを取得し直します。")
@@ -33,7 +33,7 @@ struct RefreshBusIntent: AppIntent {
 }
 
 /// ウィジェット上で自動更新の停止／再開を切り替える。
-struct TogglePauseIntent: AppIntent {
+struct ToggleEdoBusPauseIntent: AppIntent {
     static var title: LocalizedStringResource { "自動更新の停止と再開" }
     static var description: IntentDescription {
         IntentDescription("バス情報の自動更新を一時停止、または再開します。")
