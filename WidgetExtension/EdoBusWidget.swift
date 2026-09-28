@@ -2,16 +2,52 @@ import WidgetKit
 import SwiftUI
 import AppIntents
 
+/// 今後の定刻。時刻が無いときは型ごと存在しない（nil）。
+struct ScheduledDepartures {
+    enum Source {
+        case today(ScheduleDayType)
+        case nextDay(ScheduleDayType)
+    }
+
+    let times: [Date]
+
+    var title: String {
+        switch source {
+        case .today(let dayType):
+            return "定刻（\(dayType.label)ダイヤ）"
+        case .nextDay(let dayType):
+            return "翌日（\(dayType.label)ダイヤ）"
+        }
+    }
+
+    private let source: Source
+    private static let limit = 3
+
+    /// システムロケールだと AM/PM 付きになり、3件で小ウィジェットの内幅を超える。
+    static func clockLine(_ dates: [Date]) -> String {
+        let style = Date.VerbatimFormatStyle(
+            format: "\(hour: .twoDigits(clock: .twentyFourHour, hourCycle: .zeroBased)):\(minute: .twoDigits)",
+            timeZone: BusStopConfig.timeZone,
+            calendar: Calendar(identifier: .gregorian)
+        )
+        return dates.map { $0.formatted(style) }.joined(separator: "  ")
+    }
+
+    init?(times: some Sequence<Date>, source: Source) {
+        let head = Array(times.prefix(Self.limit))
+        guard !head.isEmpty else { return nil }
+        self.times = head
+        self.source = source
+    }
+}
+
 struct BusEntry: TimelineEntry {
     let date: Date
     let stop: BusStop
     let routeName: String
     /// バスロケーションシステム由来の接近状況。取得できなかった場合はnil。
     let approach: BusApproach?
-    /// 時刻表由来の今後の定刻。リアルタイム情報の補助として表示する。
-    let scheduled: [Date]
-    let dayLabel: String
-    let isNextDay: Bool
+    let schedule: ScheduledDepartures?
     /// 一時停止中は通信せず、最後に取得した値をそのまま表示する
     let isPaused: Bool
 
@@ -21,9 +57,7 @@ struct BusEntry: TimelineEntry {
             stop: BusStopConfig.defaultStop,
             routeName: BusStopConfig.defaultRoute.name,
             approach: nil,
-            scheduled: [],
-            dayLabel: "",
-            isNextDay: false,
+            schedule: nil,
             isPaused: false
         )
     }
@@ -67,7 +101,7 @@ struct Provider: AppIntentTimelineProvider {
         case .finished, .longWait, .unknown:
             // 運行終了、長時間の間引き運行、または解釈できないメッセージ。
             // 次の定刻が分かっていればその少し前まで待ち、無駄な更新を減らす。
-            if let next = entry.scheduled.first {
+            if let next = entry.schedule?.times.first {
                 interval = min(max(next.timeIntervalSince(now) - 300, 5 * 60), 60 * 60)
             } else {
                 interval = 20 * 60
@@ -113,9 +147,7 @@ struct Provider: AppIntentTimelineProvider {
                 stop: stop,
                 routeName: routeName,
                 approach: approach,
-                scheduled: Array(tomorrowDates.prefix(3)),
-                dayLabel: tomorrowType.label,
-                isNextDay: true,
+                schedule: ScheduledDepartures(times: tomorrowDates, source: .nextDay(tomorrowType)),
                 isPaused: isPaused
             )
         }
@@ -125,9 +157,7 @@ struct Provider: AppIntentTimelineProvider {
             stop: stop,
             routeName: routeName,
             approach: approach,
-            scheduled: Array(todaysRemaining.prefix(3)),
-            dayLabel: dayType.label,
-            isNextDay: false,
+            schedule: ScheduledDepartures(times: todaysRemaining, source: .today(dayType)),
             isPaused: isPaused
         )
     }
@@ -149,9 +179,7 @@ struct Provider: AppIntentTimelineProvider {
             stop: stop,
             routeName: routeName,
             approach: Self.approach(forStopID: stop.id),
-            scheduled: [],
-            dayLabel: "",
-            isNextDay: false,
+            schedule: nil,
             isPaused: true
         )
     }
@@ -328,20 +356,21 @@ struct EdoBusWidgetEntryView: View {
 
     @ViewBuilder
     private var scheduleFooter: some View {
-        if !entry.scheduled.isEmpty {
+        if let schedule = entry.schedule {
             VStack(alignment: .leading, spacing: 1) {
-                Text(entry.isNextDay ? "翌日（\(entry.dayLabel)）の始発" : "定刻")
+                Text(schedule.title)
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
-                HStack(spacing: 6) {
-                    ForEach(Array(entry.scheduled.prefix(family == .systemSmall ? 2 : 3).enumerated()), id: \.offset) { _, date in
-                        Text(date, format: .dateTime.hour().minute())
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                            .monospacedDigit()
-                    }
-                }
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                Text(ScheduledDepartures.clockLine(schedule.times))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
             }
+            .accessibilityElement(children: .combine)
         }
     }
 }
