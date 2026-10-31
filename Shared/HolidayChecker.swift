@@ -54,7 +54,7 @@ enum HolidayChecker {
 
     private static func fetchHolidays() async throws -> [String: String] {
         if let cached = await cache.value() { return cached }
-        let (data, _) = try await URLSession.shared.data(from: apiURL)
+        let (data, _) = try await BusAPI.session.data(from: apiURL)
         let holidays = try JSONDecoder().decode([String: String].self, from: data)
         await cache.store(holidays)
         return holidays
