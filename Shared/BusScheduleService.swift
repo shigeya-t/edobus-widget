@@ -21,6 +21,29 @@ enum BusScheduleService {
     /// 時刻表は日をまたがない限り変わらないため、停留所・曜日区分ごとに保持して再取得を避ける。
     private static let cache = TimetableCache()
 
+    /// 早発や分単位の丸めで、到着見込みが次の定刻よりわずかに早く出る分の許容幅。
+    private static let earlyArrivalTolerance: TimeInterval = 2 * 60
+
+    /// 定刻のうち、まだ到着していないバスの分を返す。
+    ///
+    /// 現在時刻以降で絞るだけだと、遅れて接近中の「次のバス」の定刻は既に過ぎているため消え、
+    /// 次の次の便から表示されてしまう。到着見込みが次の定刻より前なら、接近中のバスは
+    /// 直前の定刻の便が遅れているものとみなし、その定刻も先頭に残す。
+    static func upcoming(_ times: [Date], now: Date, approach: BusApproach?) -> [Date] {
+        let sorted = times.sorted()
+        let future = sorted.filter { $0 > now }
+        guard let lastPast = sorted.last(where: { $0 <= now }),
+              let arrival = approach?.predictedArrival,
+              // 古いスナップショット（到着見込みを大きく過ぎたもの）では判断しない
+              arrival > now.addingTimeInterval(-earlyArrivalTolerance)
+        else { return future }
+
+        if let next = future.first, arrival >= next.addingTimeInterval(-earlyArrivalTolerance) {
+            return future
+        }
+        return [lastPast] + future
+    }
+
     /// 指定した停留所の時刻表を取得する。
     ///
     /// レスポンスは曜日区分ごとのレコードで、1レコードが1時間帯を表す。

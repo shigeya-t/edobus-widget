@@ -134,9 +134,11 @@ struct Provider: AppIntentTimelineProvider {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = BusStopConfig.timeZone
 
-        let todaysRemaining = times
-            .compactMap { $0.date(on: now, calendar: calendar) }
-            .filter { $0 > now }
+        let todaysRemaining = BusScheduleService.upcoming(
+            times.compactMap { $0.date(on: now, calendar: calendar) },
+            now: now,
+            approach: approach
+        )
 
         if todaysRemaining.isEmpty, let tomorrow = calendar.date(byAdding: .day, value: 1, to: now) {
             let tomorrowType = await HolidayChecker.dayType(for: tomorrow)
