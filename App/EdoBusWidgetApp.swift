@@ -208,9 +208,11 @@ final class ArrivalModel: ObservableObject {
             var calendar = Calendar(identifier: .gregorian)
             calendar.timeZone = BusStopConfig.timeZone
             let now = Date()
-            scheduled = times
-                .compactMap { $0.date(on: now, calendar: calendar) }
-                .filter { $0 > now }
+            scheduled = BusScheduleService.upcoming(
+                times.compactMap { $0.date(on: now, calendar: calendar) },
+                now: now,
+                approach: approach
+            )
         }
 
         // 到着見込みの取得はここに一本化しているため、メニューバーとは別のバス停を
