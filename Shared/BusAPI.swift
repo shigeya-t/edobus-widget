@@ -26,6 +26,14 @@ enum BusAPIError: LocalizedError {
 enum BusAPI {
     static let host = "edobus.bus-go.com"
 
+    /// **ディスクキャッシュを持たない専用セッション。`URLSession.shared` を使ってはいけない。**
+    ///
+    /// `URLSession.shared` は応答をコンテナの `Library/Caches` に書き溜める
+    /// （`cachePolicy` で読み込みを無視しても書き込みは止まらない）。ディスクの空きが減ると
+    /// macOS の cache_delete がキャッシュを消すためにアプリを強制終了し
+    /// （`CacheDeleteAppContainerCaches`、SIGKILL）、ウィジェットを更新する常駐アプリがいなくなる。
+    static let session = URLSession(configuration: .ephemeral)
+
     static func url(path: String, query: [String: String]) -> URL? {
         var components = URLComponents()
         components.scheme = "http"
@@ -42,7 +50,7 @@ enum BusAPI {
         // 通信の有無を追跡できるよう、すべてのリクエストを記録する
         busLogger.debug("API request: \(path, privacy: .public)")
         do {
-            let (data, response) = try await URLSession.shared.data(for: request)
+            let (data, response) = try await session.data(for: request)
             // エラーページのHTMLをXMLとして解析してしまわないよう、ステータスを確認する
             if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
                 throw BusAPIError.httpStatus(http.statusCode)
