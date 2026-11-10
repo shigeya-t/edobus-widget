@@ -17,7 +17,11 @@ struct BusRouteEntity: AppEntity {
     }
 }
 
-struct BusRouteQuery: EntityQuery {
+// このファイルのクエリ（BusRouteQuery / BusStopQuery）は EntityQuery ではなく EntityStringQuery にしている。
+// 素の EntityQuery（suggestedEntities だけ）だと、ウィジェットの編集画面は選択肢をポップアップメニューで出す。
+// macOS 27.2.1 ではその経路で「選んだ値が編集画面に反映されない」「編集画面を閉じたあとウィジェットの
+// 右クリックメニューが出なくなる」という不具合が起きる。EntityStringQuery にすると検索つきリストになり、起きない。
+struct BusRouteQuery: EntityStringQuery {
     func entities(for identifiers: [String]) async throws -> [BusRouteEntity] {
         let routes = try await BusDirectoryService.fetchRoutes()
         return routes.filter { identifiers.contains($0.code) }.map(BusRouteEntity.init)
@@ -25,6 +29,13 @@ struct BusRouteQuery: EntityQuery {
 
     func suggestedEntities() async throws -> [BusRouteEntity] {
         try await BusDirectoryService.fetchRoutes().map(BusRouteEntity.init)
+    }
+
+    func entities(matching string: String) async throws -> [BusRouteEntity] {
+        let all = try await suggestedEntities()
+        let query = string.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return all }
+        return all.filter { $0.name.localizedCaseInsensitiveContains(query) }
     }
 
     func defaultResult() async -> BusRouteEntity? {
@@ -49,7 +60,7 @@ struct BusStopEntity: AppEntity {
     }
 }
 
-struct BusStopQuery: EntityQuery {
+struct BusStopQuery: EntityStringQuery {
     /// 選択中の路線に属する停留所だけを候補に出すため、同じIntentの route パラメータを参照する
     @IntentParameterDependency<SelectEdoBusStopIntent>(\.$route)
     var selection
@@ -67,6 +78,14 @@ struct BusStopQuery: EntityQuery {
     func suggestedEntities() async throws -> [BusStopEntity] {
         let routeCode = selection?.route.id ?? BusStopConfig.defaultRoute.code
         return try await BusDirectoryService.fetchStops(routeCode: routeCode).map(BusStopEntity.init)
+    }
+
+    /// suggestedEntities() と同じく、選択中の路線の停留所だけを対象に絞り込む
+    func entities(matching string: String) async throws -> [BusStopEntity] {
+        let all = try await suggestedEntities()
+        let query = string.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return all }
+        return all.filter { $0.name.localizedCaseInsensitiveContains(query) }
     }
 
     func defaultResult() async -> BusStopEntity? {
