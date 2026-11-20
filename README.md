@@ -19,6 +19,15 @@
 - 平日・土曜・日祝の時刻表を自動判定（祝日は [holidays-jp](https://holidays-jp.github.io/) を参照）
 - メニューバーに次のバスまでの分数を常時表示（クリックで路線・バス停の切り替え）
 
+## インストール（配布版）
+
+ビルドせずに使う場合は、[Releases](https://github.com/shigeya-t/edobus-widget/releases/latest) から
+`EdoBusWidget-<版>.dmg`（Developer ID 署名・公証済み）をダウンロードし、
+`EdoBusWidget.app` を「アプリケーション」フォルダへドラッグしてください。
+起動後、「ウィジェットを編集」から「江戸バス接近情報」を追加します。
+
+自分でビルドする場合は以下を参照してください。
+
 ## 必要なもの
 
 - macOS 14 以降
