@@ -243,3 +243,20 @@ log stream --predicate 'subsystem beginswith "jp.shigeya.EdoBusWidget"' --level 
 ```
 
 アプリ／ウィジェット拡張どちらのログもまとめて見える。`API request: <path>` がサーバーへの実リクエスト。
+
+## 配布用 DMG の作成
+
+`scripts/make-dmg.sh` でアーカイブ → Developer ID 書き出し（クラウド署名、`-allowProvisioningUpdates`）→
+DMG → 公証 → staple まで行う。成果物は `build/dist/EdoBusWidget-<版>.dmg`。Team ID は環境変数で渡す
+（このファイルには書かない）。
+
+```sh
+NOTARY_PROFILE=notary DEVELOPMENT_TEAM=<有料チームの Team ID> ./scripts/make-dmg.sh
+```
+
+- 公証には hardened runtime が必須（`project.yml` で両ターゲットに `ENABLE_HARDENED_RUNTIME: YES`）。
+- 配布する版ごとに `MARKETING_VERSION` / `CURRENT_PROJECT_VERSION` を上げる（両ターゲット）。
+- リリースノートは `docs/releases/v<版>.md` に置き、`gh release create v<版> <dmg> --notes-file ...` で登録する。
+- スクリプトは終了時に、アーカイブ等の作業用コピーを Launch Services から外す（同じ bundle ID の
+  コピーが残ると配置済みウィジェットが拡張を引けなくなる）。
+- App Group ID は Team ID から作るため、配布版と手元の開発用ビルド（別 Team）では共有設定が分かれる。
